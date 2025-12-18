@@ -12,14 +12,15 @@ const DoctorProfile = () => {
     backendUrl,
     doctorToken,
   } = useContext(DoctorContext);
+
   const { currency } = useContext(AppContext);
 
   const [isEdit, setIsEdit] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState("");
 
   useEffect(() => {
-    if (doctorToken) {
-      getMyProfileData();
-    }
+    if (doctorToken) getMyProfileData();
   }, [doctorToken]);
 
   const handleChange = (e) => {
@@ -35,23 +36,39 @@ const DoctorProfile = () => {
     }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImageFile(file);
+    setPreviewImage(URL.createObjectURL(file));
+  };
+
   const handleUpdateProfile = async () => {
     try {
-      const updateData = {
-        name: profileData.name,
-        speciality: profileData.speciality,
-        degree: profileData.degree,
-        fees: profileData.fees,
-        experience: profileData.experience,
-        about: profileData.about,
-        address: profileData.address,
-        available: profileData.available,
-      };
+      const formData = new FormData();
+
+      formData.append("name", profileData.name);
+      formData.append("speciality", profileData.speciality);
+      formData.append("degree", profileData.degree);
+      formData.append("fees", profileData.fees);
+      formData.append("experience", profileData.experience);
+      formData.append("about", profileData.about);
+      formData.append("available", profileData.available);
+      formData.append("address", JSON.stringify(profileData.address));
+
+      if (imageFile) {
+        formData.append("image", imageFile);
+      }
+
       const { data } = await axios.put(
         `${backendUrl}/api/v1/doctor/update-doctor-profile`,
-        updateData,
+        formData,
         {
-          headers: { Authorization: `Bearer ${doctorToken}` },
+          headers: {
+            Authorization: `Bearer ${doctorToken}`,
+            "Content-Type": "multipart/form-data",
+          },
         }
       );
 
@@ -60,11 +77,18 @@ const DoctorProfile = () => {
         return;
       }
 
-      toast.success(data.message || "Profile updated successfully");
-      setProfileData(data.doctor || profileData);
+      toast.success("Profile updated successfully");
+
+      // Reset edit state and preview
       setIsEdit(false);
+      setImageFile(null);
+      setPreviewImage("");
+
+      // Refetch the profile data to get the latest information from the server
+      await getMyProfileData();
     } catch (error) {
-      toast.error("Something went wrong");
+      console.error("Update error:", error);
+      toast.error(error.response?.data?.message || "Something went wrong");
     }
   };
 
@@ -76,16 +100,33 @@ const DoctorProfile = () => {
 
       <div className="bg-white rounded-2xl shadow-sm p-6 max-w-5xl">
         <div className="flex flex-col md:flex-row gap-8">
-          {/* Image */}
-          <img
-            src={profileData.image}
-            alt={profileData.name}
-            className="w-48 h-60 rounded-xl object-cover bg-indigo-100"
-          />
+          <div className="relative w-48">
+            <img
+              src={previewImage || profileData.image}
+              alt={profileData.name}
+              className="w-48 h-60 rounded-xl object-cover bg-indigo-100"
+            />
 
-          {/* Info */}
+            {isEdit && (
+              <>
+                <label
+                  htmlFor="doctorImage"
+                  className="absolute bottom-2 right-2 bg-indigo-600 text-white px-3 py-1 rounded-lg cursor-pointer text-sm shadow"
+                >
+                  Edit
+                </label>
+                <input
+                  type="file"
+                  id="doctorImage"
+                  accept="image/*"
+                  hidden
+                  onChange={handleImageChange}
+                />
+              </>
+            )}
+          </div>
+
           <div className="flex-1 space-y-3">
-            {/* Name */}
             {isEdit ? (
               <input
                 name="name"
@@ -97,7 +138,6 @@ const DoctorProfile = () => {
               <h2 className="text-2xl font-bold">{profileData.name}</h2>
             )}
 
-            {/* Degree & Speciality */}
             {isEdit ? (
               <div className="flex gap-2">
                 <input
@@ -119,7 +159,6 @@ const DoctorProfile = () => {
               </p>
             )}
 
-            {/* Experience */}
             {isEdit ? (
               <input
                 type="number"
@@ -134,7 +173,6 @@ const DoctorProfile = () => {
               </p>
             )}
 
-            {/* About */}
             <div>
               <h3 className="font-semibold">About</h3>
               {isEdit ? (
@@ -150,7 +188,6 @@ const DoctorProfile = () => {
               )}
             </div>
 
-            {/* Fees */}
             {isEdit ? (
               <input
                 type="number"
@@ -165,7 +202,6 @@ const DoctorProfile = () => {
               </p>
             )}
 
-            {/* Address */}
             {isEdit ? (
               <>
                 <input
@@ -173,12 +209,14 @@ const DoctorProfile = () => {
                   value={profileData.address.line1}
                   onChange={handleAddressChange}
                   className="input-field"
+                  placeholder="Address Line 1"
                 />
                 <input
                   name="line2"
                   value={profileData.address.line2}
                   onChange={handleAddressChange}
                   className="input-field"
+                  placeholder="Address Line 2"
                 />
               </>
             ) : (
@@ -189,7 +227,6 @@ const DoctorProfile = () => {
               </p>
             )}
 
-            {/* Availability */}
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -200,13 +237,13 @@ const DoctorProfile = () => {
                     available: !p.available,
                   }))
                 }
+                disabled={!isEdit}
               />
               Available
             </label>
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="mt-6 flex gap-3">
           {isEdit ? (
             <>
@@ -214,7 +251,13 @@ const DoctorProfile = () => {
                 Save Changes
               </button>
               <button
-                onClick={() => setIsEdit(false)}
+                onClick={() => {
+                  setIsEdit(false);
+                  setPreviewImage("");
+                  setImageFile(null);
+                  // Refetch to reset any unsaved changes
+                  getMyProfileData();
+                }}
                 className="btn-secondary"
               >
                 Cancel

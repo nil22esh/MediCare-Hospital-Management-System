@@ -131,7 +131,7 @@ const DoctorContextProvider = (props) => {
         return;
       }
       toast.success(data.message);
-      console.log("dashdata------->", data.doctorDashboard);
+      // console.log("dashdata------->", data.doctorDashboard);
       setDashboardData(data.doctorDashboard);
     } catch (error) {
       console.log("Error in getDashboardData:", error);
