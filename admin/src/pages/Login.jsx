@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState , useNavigate} from "react";
 import axios from "axios";
 import { AdminContext } from "../context/AdminContext";
 import { toast } from "react-toastify";
@@ -10,7 +10,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const { setAdminToken, backendUrl } = useContext(AdminContext);
   const { setDoctorToken } = useContext(DoctorContext);
-  DoctorContext;
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,6 +24,7 @@ const Login = () => {
           toast.error(data.message || "Admin login failed");
           return;
         }
+        navigate('/admin-dashboard');
         toast.success(data.message);
         const token = data.adminToken;
         if (!token) {
@@ -42,6 +43,7 @@ const Login = () => {
           toast.error(data.message || "Doctor login failed");
           return;
         }
+        navigate('/doctor-dashboard');
         toast.success(data.message);
         const token = data.doctorToken;
         if (!token) {
